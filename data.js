@@ -105,14 +105,29 @@ export async function getHeadlines() {
       timeout: 10000,
     });
 
-    const articles = res.data.articles || [];
+    // Handle different possible response shapes
+    const raw = res.data;
+    let articles = [];
+    if (Array.isArray(raw)) {
+      articles = raw;
+    } else if (raw.articles && Array.isArray(raw.articles)) {
+      articles = raw.articles;
+    } else if (raw.data && Array.isArray(raw.data)) {
+      articles = raw.data;
+    } else if (raw.results && Array.isArray(raw.results)) {
+      articles = raw.results;
+    }
+
     const headlines = articles.slice(0, 10).map(a => ({
-      title: a.title,
-      source: a.source || 'Unknown',
-      description: a.description || '',
+      title: a.title || a.headline || '',
+      source: a.source || a.provider || 'Unknown',
+      description: a.description || a.summary || '',
     }));
 
     logger.data(`cryptocurrency.cv: ${headlines.length} headlines fetched`);
+    if (headlines.length === 0) {
+      logger.data(`cryptocurrency.cv raw response keys: ${JSON.stringify(Object.keys(raw))}`);
+    }
     return headlines;
   } catch (err) {
     logger.error('getHeadlines (cryptocurrency.cv) failed', { err: err.message });
