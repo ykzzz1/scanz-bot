@@ -17,7 +17,7 @@ const DEFAULT_STATE = {
 export function readState() {
   try {
     if (!fs.existsSync(STATE_PATH)) {
-      writeState(DEFAULT_STATE);
+      fs.writeFileSync(STATE_PATH, JSON.stringify(DEFAULT_STATE, null, 2), 'utf8');
       return { ...DEFAULT_STATE };
     }
     const raw = fs.readFileSync(STATE_PATH, 'utf8');
@@ -30,7 +30,12 @@ export function readState() {
 
 export function writeState(patch) {
   try {
-    const current = readState();
+    let current = { ...DEFAULT_STATE };
+    if (fs.existsSync(STATE_PATH)) {
+      try {
+        current = JSON.parse(fs.readFileSync(STATE_PATH, 'utf8'));
+      } catch (_) { /* use defaults */ }
+    }
     const updated = { ...current, ...patch };
     fs.writeFileSync(STATE_PATH, JSON.stringify(updated, null, 2), 'utf8');
     return updated;
