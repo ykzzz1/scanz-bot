@@ -28,7 +28,13 @@ function buildMarketContext(data) {
 
   if (headlines && headlines.length > 0) {
     ctx += `\nLatest Headlines:\n`;
-    headlines.forEach((h, i) => { ctx += `${i + 1}. ${h}\n`; });
+    headlines.forEach((h, i) => {
+      if (typeof h === 'string') {
+        ctx += `${i + 1}. ${h}\n`;
+      } else {
+        ctx += `${i + 1}. [${h.source}] ${h.title}\n`;
+      }
+    });
   }
 
   return ctx;
