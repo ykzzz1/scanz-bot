@@ -1,5 +1,6 @@
 import axios from 'axios';
 import 'dotenv/config';
+import { parseStringPromise } from 'xml2js';
 import { logger } from './logger.js';
 
 const CG_BASE = 'https://api.coingecko.com/api/v3';
@@ -120,12 +121,101 @@ export async function getHeadlines() {
   }
 }
 
-export async function getAllData() {
-  const [market, topMover, fearGreed, headlines] = await Promise.all([
+
+export async function getGlassnodeRSS() {
+  try {
+    const res = await axios.get('https://insights.glassnode.com/rss', {
+      headers: { 'User-Agent': 'ScanZBot/1.0' },
+      timeout: 8000,
+    });
+    const parsed = await parseStringPromise(res.data);
+    const items = parsed.rss.channel[0].item.slice(0, 3);
+    const headlines = items.map(item => ({
+      title: item.title[0],
+      summary: item.description[0].replace(/<[^>]*>/g, '').slice(0, 200),
+    }));
+    logger.data(`Glassnode RSS: ${headlines.length} items fetched`);
+    return headlines;
+  } catch (err) {
+    logger.error('getGlassnodeRSS failed', { err: err.message });
+    return [];
+  }
+}
+
+export async function getCoinDeskRSS() {
+  try {
+    const res = await axios.get(
+      'https://www.coindesk.com/arc/outboundfeeds/rss/',
+      { headers: { 'User-Agent': 'ScanZBot/1.0' }, timeout: 8000 }
+    );
+    const parsed = await parseStringPromise(res.data);
+    const items = parsed.rss.channel[0].item.slice(0, 4);
+    const headlines = items.map(item => item.title[0]);
+    logger.data(`CoinDesk RSS: ${headlines.length} headlines fetched`);
+    return headlines;
+  } catch (err) {
+    logger.error('getCoinDeskRSS failed', { err: err.message });
+    return [];
+  }
+}
+
+export async function getDefiantRSS() {
+  try {
+    const res = await axios.get('https://thedefiant.io/api/feed', {
+      headers: { 'User-Agent': 'ScanZBot/1.0' },
+      timeout: 8000,
+    });
+    const parsed = await parseStringPromise(res.data);
+    const items = parsed.rss.channel[0].item.slice(0, 3);
+    const headlines = items.map(item => item.title[0]);
+    logger.data(`The Defiant RSS: ${headlines.length} headlines fetched`);
+    return headlines;
+  } catch (err) {
+    logger.error('getDefiantRSS failed', { err: err.message });
+    return [];
+  }
+}
+
+export async function getBenjaminCowenPosts(twitterClient) {
+  try {
+    const user = await twitterClient.v2.userByUsername('intothecryptoverse');
+    const userId = user.data.id;
+    const tweets = await twitterClient.v2.userTimeline(userId, {
+      max_results: 5,
+      'tweet.fields': ['text', 'created_at'],
+      exclude: ['retweets', 'replies'],
+    });
+    const posts = tweets.data?.data?.map(t => t.text) || [];
+    logger.data(`Benjamin Cowen: ${posts.length} posts fetched`);
+    return posts;
+  } catch (err) {
+    logger.error('getBenjaminCowenPosts failed', { err: err.message });
+    return [];
+  }
+}
+
+export async function getAllData(twitterClient) {
+  const [market, topMover, fearGreed, headlines,
+         glassnodeRSS, coindeskHeadlines, defiantHeadlines,
+         cowenPosts] = await Promise.all([
     getMarketSnapshot(),
     getTopMover(),
     getFearGreed(),
     getHeadlines(),
+    getGlassnodeRSS(),
+    getCoinDeskRSS(),
+    getDefiantRSS(),
+    twitterClient ? getBenjaminCowenPosts(twitterClient) : Promise.resolve([]),
   ]);
-  return { market, topMover, fearGreed, headlines };
+
+  return {
+    market,
+    topMover,
+    fearGreed,
+    headlines,
+    glassnodeRSS,
+    coindeskHeadlines,
+    defiantHeadlines,
+    cowenPosts,
+  };
 }
