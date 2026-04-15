@@ -99,25 +99,9 @@ export async function getFearGreed() {
 }
 
 export async function getHeadlines() {
-  try {
-    const res = await axios.get(`${CG_BASE}/news`, {
-      headers: CG_HEADERS,
-      timeout: 10000,
-    });
-
-    const articles = Array.isArray(res.data) ? res.data : (res.data.data || []);
-    const headlines = articles.slice(0, 10).map(a => ({
-      title: a.title || '',
-      source: a.source_name || a.author || 'Unknown',
-      description: a.description || '',
-    }));
-
-    logger.data(`CoinGecko News: ${headlines.length} headlines fetched`);
-    return headlines;
-  } catch (err) {
-    logger.error('getHeadlines (CoinGecko) failed', { err: err.message });
-    return [];
-  }
+  // News endpoint not available on CoinGecko Demo plan
+  // Headlines are optional — bot works fine without them
+  return [];
 }
 
 export async function getBenjaminCowenPosts(twitterClient) {
