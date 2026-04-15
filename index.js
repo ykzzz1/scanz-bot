@@ -12,7 +12,6 @@ function validateEnv() {
     'TWITTER_ACCESS_SECRET',
     'ANTHROPIC_API_KEY',
     'COINGECKO_API_KEY',
-    'CRYPTOPANIC_API_KEY',
     'BOT_USER_ID',
   ];
 
