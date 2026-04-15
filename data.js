@@ -99,40 +99,46 @@ export async function getFearGreed() {
 }
 
 export async function getHeadlines() {
-  try {
-    const res = await axios.get('https://cryptocurrency.cv/api/news', {
-      params: { limit: 10 },
-      timeout: 10000,
-    });
+  // Try multiple cryptocurrency.cv endpoints in order
+  const endpoints = [
+    'https://cryptocurrency.cv/api/news/international',
+    'https://cryptocurrency.cv/api/news',
+    'https://cryptocurrency.cv/cache/latest.json',
+  ];
 
-    // Handle different possible response shapes
-    const raw = res.data;
-    let articles = [];
-    if (Array.isArray(raw)) {
-      articles = raw;
-    } else if (raw.articles && Array.isArray(raw.articles)) {
-      articles = raw.articles;
-    } else if (raw.data && Array.isArray(raw.data)) {
-      articles = raw.data;
-    } else if (raw.results && Array.isArray(raw.results)) {
-      articles = raw.results;
+  for (const url of endpoints) {
+    try {
+      const res = await axios.get(url, { timeout: 10000 });
+      const raw = res.data;
+
+      // Find the articles array in the response
+      let articles = [];
+      if (Array.isArray(raw)) {
+        articles = raw;
+      } else if (raw.articles && Array.isArray(raw.articles) && raw.articles.length > 0) {
+        articles = raw.articles;
+      } else if (raw.data && Array.isArray(raw.data) && raw.data.length > 0) {
+        articles = raw.data;
+      } else if (raw.results && Array.isArray(raw.results) && raw.results.length > 0) {
+        articles = raw.results;
+      }
+
+      if (articles.length > 0) {
+        const headlines = articles.slice(0, 10).map(a => ({
+          title: a.title || a.headline || '',
+          source: a.source || a.provider || 'Unknown',
+          description: a.description || a.summary || '',
+        }));
+        logger.data(`cryptocurrency.cv: ${headlines.length} headlines fetched from ${url}`);
+        return headlines;
+      }
+    } catch (err) {
+      logger.error(`cryptocurrency.cv endpoint failed: ${url}`, { err: err.message });
     }
-
-    const headlines = articles.slice(0, 10).map(a => ({
-      title: a.title || a.headline || '',
-      source: a.source || a.provider || 'Unknown',
-      description: a.description || a.summary || '',
-    }));
-
-    logger.data(`cryptocurrency.cv: ${headlines.length} headlines fetched`);
-    if (headlines.length === 0) {
-      logger.data(`cryptocurrency.cv raw response keys: ${JSON.stringify(Object.keys(raw))}`);
-    }
-    return headlines;
-  } catch (err) {
-    logger.error('getHeadlines (cryptocurrency.cv) failed', { err: err.message });
-    return [];
   }
+
+  logger.data('cryptocurrency.cv: all endpoints returned 0 headlines');
+  return [];
 }
 
 export async function getBenjaminCowenPosts(twitterClient) {
